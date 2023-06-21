@@ -1,3 +1,8 @@
-node_modules
-dist
-
+node_modules/
+coverage/
+dist/
+dist-tests/
+lib/
+dist-tests/
+lib-tests/
+build/
