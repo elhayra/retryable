@@ -47,14 +47,22 @@ describe('retryable tests', () => {
     });
 
     describe('calling config functions twice', () => {
-      it('should take the last value or append to array', () => {
+      it('should take the last value in case of duplicate settings', () => {
         fakeRetryable.retry
           .times(10)
           .times(5)
           .atIntervalsOf(2000)
           .atIntervalsOf(3000)
           .withBackoffFactor(3)
-          .withBackoffFactor(5)
+          .withBackoffFactor(5);
+
+        expect(fakeRetryable.retry._times).toEqual(5);
+        expect(fakeRetryable.retry._intervalMillis).toEqual(3000);
+        expect(fakeRetryable.retry._backoffFactor).toEqual(5);
+      });
+
+      it('should add unique triggers to the set', () => {
+        fakeRetryable.retry
           .ifItReturns(1)
           .ifItReturns(2)
           .ifItReturns(null)
@@ -62,14 +70,11 @@ describe('retryable tests', () => {
           .ifItThrows(FakeErrorA)
           .ifItThrows(FakeErrorB);
 
-        expect(fakeRetryable.retry._times).toEqual(5);
-        expect(fakeRetryable.retry._intervalMillis).toEqual(3000);
-        expect(fakeRetryable.retry._backoffFactor).toEqual(5);
         expect(fakeRetryable.retry._returnedValues).toEqual(new Set([1, 2, null, undefined]));
         expect(fakeRetryable.retry._errors).toStrictEqual(new Set([Error, FakeErrorA, FakeErrorB]));
       });
 
-      it('should not store duplicates', () => {
+      it('should not store duplicate triggers', () => {
         fakeRetryable.retry
           .ifItReturns(1)
           .ifItReturns(1)
