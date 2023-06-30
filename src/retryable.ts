@@ -2,38 +2,67 @@ import { RanOutOfRetries } from './errors';
 import { RetrySettings } from './retry-settings';
 import { sleep } from './sleep';
 
-export class Retryable<CallbackReturnType> {
-  public retry: RetrySettings<CallbackReturnType>;
+//todo: document the Retryable type. for example, for callback func that get 2 numbers as arguemtns and return string: Retryable<string, [number, number]>
+//todo: docuenet that the run() function should always be awaited for, even for sync functions because it support both sync and async, and it returns a promise
+//todo: document the code
+//todo: add gitlab pipline with lint and utests check
 
-  constructor(private callback: (...args: any[]) => Promise<CallbackReturnType>) {
+/**
+ * This type ensure the user define the callback, and pass arguments
+ * to it or use its return value appropriately with the correct types.
+ */
+type CallbackFunction<CBRetType, CBParams extends unknown[]> = (
+  ...args: CBParams
+) => CBRetType | Promise<CBRetType>;
+
+export class Retryable<CBRetType, CBParams extends unknown[]> {
+  public retry: RetrySettings<CBRetType>;
+  public triggersHistory: {
+    returnedValues: Array<CBRetType>;
+    exceptionsThrown: Array<unknown>;
+  };
+
+  constructor(private callback: CallbackFunction<CBRetType, CBParams>) {
     this.retry = new RetrySettings();
+    this.triggersHistory = {
+      returnedValues: [],
+      exceptionsThrown: [],
+    };
   }
 
-  public async run(): Promise<CallbackReturnType> {
+  private resetRetryTriggersHistory() {
+    this.triggersHistory = {
+      returnedValues: [],
+      exceptionsThrown: [],
+    };
+  }
+
+  public async run(...args: CBParams): Promise<CBRetType> {
+    this.resetRetryTriggersHistory();
     let intervalMillis = this.retry._intervalMillis;
     const sleepWithBackoff = async () => {
       await sleep(intervalMillis);
       intervalMillis *= this.retry._backoffFactor;
     };
 
-    let returnedValue: CallbackReturnType | undefined;
-    let exceptionThrown: unknown;
-
     for (let t = this.retry._times; t >= 0; t--) {
       try {
-        returnedValue = await this.callback();
-        const isValueQualifyForRetry = this.retry._returnedValues.includes(returnedValue);
+        const retVal = await this.callback(...args);
+        const isValueQualifyForRetry = this.retry._returnedValues.has(retVal);
         if (isValueQualifyForRetry) {
+          this.triggersHistory.returnedValues.push(retVal);
           sleepWithBackoff();
           continue;
         }
-        return returnedValue;
+        return retVal;
       } catch (e: any) {
-        exceptionThrown = e;
-        const isErrorQualifyForRetry = this.retry._errors.find(
-          (err) => err.constructor === e?.constructor
-        );
+        const isErrorQualifyForRetry =
+          Array.from(this.retry._errors.values()).find(
+            (err) => err.constructor === e?.constructor
+          ) ?? Array.from(this.retry._errors.values()).find((err) => e instanceof (err as any));
+
         if (isErrorQualifyForRetry) {
+          this.triggersHistory.exceptionsThrown.push(e);
           sleepWithBackoff();
           continue;
         }
@@ -47,10 +76,8 @@ export class Retryable<CallbackReturnType> {
         intervalMillis: this.retry._intervalMillis,
         backoffFactor: this.retry._backoffFactor,
       },
-      {
-        lastErrorThrown: exceptionThrown,
-        lastReturnedValue: returnedValue,
-      }
+      this.triggersHistory.returnedValues,
+      this.triggersHistory.exceptionsThrown
     );
   }
 }

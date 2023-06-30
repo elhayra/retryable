@@ -1,19 +1,19 @@
 export class RetrySettings<CallbackReturnType> {
-  public _errors: Array<Constructable | Error> = [Error];
-  public _returnedValues: Array<CallbackReturnType | null | undefined> = [];
+  public _errors: Set<Constructable | Error> = new Set([Error]);
+  public _returnedValues: Set<CallbackReturnType | null | undefined> = new Set();
   public _times = 3;
   public _intervalMillis = 1000;
   public _backoffFactor = 1;
 
   public ifItThrows(error: Constructable | Error): RetrySettings<CallbackReturnType> {
-    this._errors.push(error);
+    this._errors.add(error);
     return this;
   }
 
   public ifItReturns(
     returnValues: CallbackReturnType | undefined | null
   ): RetrySettings<CallbackReturnType> {
-    this._returnedValues.push(returnValues);
+    this._returnedValues.add(returnValues);
     return this;
   }
 
