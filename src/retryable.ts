@@ -3,15 +3,18 @@ import { RetrySettings } from './retry-settings';
 import { sleep } from './sleep';
 
 //todo: document the Retryable type. for example, for callback func that get 2 numbers as arguemtns and return string: Retryable<string, [number, number]>
-//todo: docuenet that the run() function may return a promise or a value depend on the callback return. if an async callback is passed, the use might want to await the run function to get the value instead of a promise 
+//todo: document that run function should always be awaited because:
+// it support both sync and async functions
+// at the time it operates, the callback function return value should be resolved so it can be checked if a retry is needed or not based on the resolved value (a promise is not enough here)
+// the setTimeout function can be used with a callback, but it's much cleaner and readable to use await in this case, which also requires run() func to be async
 //todo: document the code
 //todo: document that ive decided not to use default excption of Error, the user must define the triggers - no default triggers
 //todo: add gitlab pipline with lint and utests check
 //todo: provide a quick start guide example in the readme, and a detailed guide too
-// example for typed retryable that get 2 numbers as arguments and returns a string: 
+// example for typed retryable that get 2 numbers as arguments and returns a string:
 //  const fakeRetryable: Retryable<string, [number, number]> = new Retryable(
 //    fakeSyncCallbackFunc
- // );
+// );
 
 /**
  * This type ensure the user define the callback, and pass arguments
@@ -43,7 +46,7 @@ export class Retryable<CBRetType, CBParams extends unknown[]> {
     };
   }
 
-  public run(...args: CBParams): Promise<CBRetType> | CBRetType {
+  public async run(...args: CBParams): Promise<CBRetType> {
     this.resetRetryTriggersHistory();
     let intervalMillis = this.retry._intervalMillis;
     const sleepWithBackoff = async () => {
@@ -53,24 +56,22 @@ export class Retryable<CBRetType, CBParams extends unknown[]> {
 
     for (let t = this.retry._times; t > 0; t--) {
       try {
-        const retVal = this.callback(...args);
-        const isValueQualifyForRetry = this.retry._returnedValues.has(retVal);
+        const retVal = await this.callback(...args);
+        const isValueQualifyForRetry = this.retry._returnedValues.has(retVal as CBRetType);
         if (isValueQualifyForRetry) {
           this.triggersHistory.returnedValues.push(retVal);
-          sleepWithBackoff();
+          await sleepWithBackoff();
           continue;
         }
         return retVal;
       } catch (e: any) {
-        const isErrorQualifyForRetry =
-          Array.from(this.retry._errors.values()).find(
-            (err) => (err.constructor === e?.constructor) || (e instanceof (err as any))
-          );
+        const isErrorQualifyForRetry = Array.from(this.retry._errors.values()).find(
+          (err) => err.constructor === e?.constructor || e instanceof (err as any)
+        );
 
         if (isErrorQualifyForRetry) {
           this.triggersHistory.exceptionsThrown.push(e);
-          sleepWithBackoff();
-          // setTimeout(() => {continue}, 1000);
+          await sleepWithBackoff();
           continue;
         }
         throw e;
@@ -83,9 +84,7 @@ export class Retryable<CBRetType, CBParams extends unknown[]> {
         intervalMillis: this.retry._intervalMillis,
         backoffFactor: this.retry._backoffFactor,
       },
-      this.triggersHistory,
+      this.triggersHistory
     );
   }
-
-
 }

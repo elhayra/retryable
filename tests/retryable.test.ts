@@ -1,7 +1,6 @@
 import { Retryable } from '../src';
 import { sleep } from '../src/sleep';
 
-
 jest.mock('../src/sleep');
 const mockedSleep = sleep as jest.Mock;
 
@@ -99,11 +98,11 @@ describe('retryable tests', () => {
   describe('retry execution', () => {
     describe('callback function succeeded on first try', () => {
       describe('callback is an async function with arguments', () => {
-        it('should return the callback returned value', () => {
-          const fakeAsyncCallbackFunc = jest.fn(async (x: number, y: number): Promise<string> => `test ${x}, ${y}`);
-          const fakeRetryable = new Retryable(
-            fakeAsyncCallbackFunc
+        it('should return the callback returned value', async () => {
+          const fakeAsyncCallbackFunc = jest.fn(
+            async (x: number, y: number): Promise<string> => `test ${x}, ${y}`
           );
+          const fakeRetryable = new Retryable(fakeAsyncCallbackFunc);
           fakeRetryable.retry.times(3);
 
           expect(fakeRetryable.run(1, 2)).resolves.toEqual('test 1, 2');
@@ -114,22 +113,18 @@ describe('retryable tests', () => {
       describe('callback is a sync function with arguments', () => {
         it('should return the callback returned value', async () => {
           const fakeSyncCallbackFunc = jest.fn((x: number, y: number): string => `test ${x}, ${y}`);
-          const fakeRetryable = new Retryable(
-            fakeSyncCallbackFunc
-          );
+          const fakeRetryable = new Retryable(fakeSyncCallbackFunc);
           fakeRetryable.retry.times(3);
 
-          expect(fakeRetryable.run(1, 2)).toEqual('test 1, 2');
-          expect(fakeSyncCallbackFunc).toHaveBeenCalledTimes(1); 
+          expect(await fakeRetryable.run(1, 2)).toEqual('test 1, 2');
+          expect(fakeSyncCallbackFunc).toHaveBeenCalledTimes(1);
         });
       });
 
       describe('callback is an async function without arguments', () => {
         it('should return the callback returned value', async () => {
           const fakeAsyncCallbackFunc = jest.fn(async (): Promise<string> => 'test');
-          const fakeRetryable = new Retryable(
-            fakeAsyncCallbackFunc
-          );
+          const fakeRetryable = new Retryable(fakeAsyncCallbackFunc);
           fakeRetryable.retry.times(3);
 
           expect(fakeRetryable.run()).resolves.toEqual('test');
@@ -138,48 +133,46 @@ describe('retryable tests', () => {
       });
 
       describe('callback is a sync function without arguments', () => {
-        it('should return the callback returned value', () => {
+        it('should return the callback returned value', async () => {
           const fakeSyncCallbackFunc = jest.fn((): string => 'test');
-          const fakeRetryable = new Retryable(
-            fakeSyncCallbackFunc
-          );
+          const fakeRetryable = new Retryable(fakeSyncCallbackFunc);
           fakeRetryable.retry.times(3);
 
-          expect(fakeRetryable.run()).toEqual('test');
-          expect(fakeSyncCallbackFunc).toHaveBeenCalledTimes(1); 
+          expect(await fakeRetryable.run()).toEqual('test');
+          expect(fakeSyncCallbackFunc).toHaveBeenCalledTimes(1);
         });
       });
 
       describe('callback is a sync function with no return value (void)', () => {
-        it('should return the callback returned value', () => {
+        it('should return the callback returned value', async () => {
           const fakeSyncCallbackFunc = jest.fn((): void => {});
-          const fakeRetryable = new Retryable(
-            fakeSyncCallbackFunc
-          );
+          const fakeRetryable = new Retryable(fakeSyncCallbackFunc);
           fakeRetryable.retry.times(3);
 
-          expect(fakeRetryable.run()).toEqual(undefined);
-          expect(fakeSyncCallbackFunc).toHaveBeenCalledTimes(1); 
+          expect(await fakeRetryable.run()).toEqual(undefined);
+          expect(fakeSyncCallbackFunc).toHaveBeenCalledTimes(1);
         });
       });
     });
 
     describe('callback function triggers are set and met', () => {
       describe('callback function succeeded on the 5th try out of 5', () => {
-        it('should return the callback returned value, and store trigger history', () => {
+        it('should return the callback returned value, and store trigger history', async () => {
           const fakeSyncCallbackFunc = jest.fn();
 
           // the first 4 mocks will make the function being retried by Retryable object
           fakeSyncCallbackFunc
             .mockReturnValueOnce(0)
-            .mockImplementationOnce(() => {throw new FakeErrorA()})
+            .mockImplementationOnce(() => {
+              throw new FakeErrorA();
+            })
             .mockReturnValueOnce(NaN)
-            .mockImplementationOnce(() => {throw new FakeErrorB()})
+            .mockImplementationOnce(() => {
+              throw new FakeErrorB();
+            })
             .mockReturnValueOnce(10);
 
-          const fakeRetryable = new Retryable(
-            fakeSyncCallbackFunc
-          );
+          const fakeRetryable = new Retryable(fakeSyncCallbackFunc);
 
           // set 4 triggers for retry, 2 for values, and another 2 for exceptions,
           // in order to trigger a retry in the mock values above
@@ -191,8 +184,8 @@ describe('retryable tests', () => {
             .ifItReturns(NaN)
             .ifItThrows(FakeErrorB);
 
-          expect(fakeRetryable.run()).toEqual(10);
-          expect(fakeSyncCallbackFunc).toHaveBeenCalledTimes(5);  
+          expect(await fakeRetryable.run()).toEqual(10);
+          expect(fakeSyncCallbackFunc).toHaveBeenCalledTimes(5);
           expect(mockedSleep).toHaveBeenCalledTimes(4);
           for (let nthCall = 1; nthCall < 5; nthCall++) {
             expect(mockedSleep).toHaveBeenNthCalledWith(nthCall, 1500);
@@ -200,34 +193,32 @@ describe('retryable tests', () => {
         });
       });
 
-      describe('callback function failed on all tries', () => {
-        it('should throw', () => {
+      describe('sync callback function failed on all tries', () => {
+        it('should throw', async () => {
           const fakeSyncCallbackFunc = jest.fn();
           fakeSyncCallbackFunc
-            .mockImplementationOnce(() => {throw new FakeErrorA()})
-            .mockImplementationOnce(() => {throw new FakeErrorB()})
-            .mockReturnValueOnce(0)
+            .mockImplementationOnce(() => {
+              throw new FakeErrorA();
+            })
+            .mockImplementationOnce(() => {
+              throw new FakeErrorB();
+            })
+            .mockReturnValueOnce(0);
 
-          const fakeRetryable = new Retryable(
-            fakeSyncCallbackFunc
-          );
+          const fakeRetryable = new Retryable(fakeSyncCallbackFunc);
 
-          fakeRetryable.retry
-            .times(3)
-            .ifItThrows(FakeErrorA)
-            .ifItReturns(0)
-            .ifItThrows(FakeErrorB)
-          
+          fakeRetryable.retry.times(3).ifItThrows(FakeErrorA).ifItReturns(0).ifItThrows(FakeErrorB);
+
           let exp;
           try {
-            fakeRetryable.run();
-          } catch(e) {
-            exp = e
+            await fakeRetryable.run();
+          } catch (e) {
+            exp = e;
           }
 
-          // make sure that the callback function was called no 
-          // more than the number of retries allowed 
-          expect(fakeSyncCallbackFunc).toHaveBeenCalledTimes(3);  
+          // make sure that the callback function was called no
+          // more than the number of retries allowed
+          expect(fakeSyncCallbackFunc).toHaveBeenCalledTimes(3);
           expect(exp.data).toStrictEqual({
             retryConfig: {
               times: 3,
@@ -237,7 +228,41 @@ describe('retryable tests', () => {
             triggersHistory: {
               returnedValues: [0],
               exceptionsThrown: [new FakeErrorA(), new FakeErrorB()],
-            }
+            },
+          });
+          expect(mockedSleep).toHaveBeenCalledTimes(3);
+        });
+      });
+
+      describe('async callback function failed on all tries', () => {
+        it('should throw', async () => {
+          const fakeAsyncCallbackFunc = jest.fn();
+          fakeAsyncCallbackFunc.mockResolvedValue(0);
+
+          const fakeRetryable = new Retryable(fakeAsyncCallbackFunc);
+
+          fakeRetryable.retry.times(3).ifItReturns(0);
+
+          let exp;
+          try {
+            await fakeRetryable.run();
+          } catch (e) {
+            exp = e;
+          }
+
+          // make sure that the callback function was called no
+          // more than the number of retries allowed
+          expect(fakeAsyncCallbackFunc).toHaveBeenCalledTimes(3);
+          expect(exp.data).toStrictEqual({
+            retryConfig: {
+              times: 3,
+              intervalMillis: 1000,
+              backoffFactor: 1,
+            },
+            triggersHistory: {
+              returnedValues: [0, 0, 0],
+              exceptionsThrown: [],
+            },
           });
           expect(mockedSleep).toHaveBeenCalledTimes(3);
         });
@@ -249,34 +274,27 @@ describe('retryable tests', () => {
     });
 
     describe('retry triggers', () => {
-      it('should be able to detect different exception triggers', () => {
+      it('should be able to detect different exception triggers', () => {});
 
-      });
-
-      it('should be able to detect different value triggers', () => {
-
-      })
+      it('should be able to detect different value triggers', () => {});
     });
 
     describe('interval with backoff factor of 2', () => {
-      it('should multiply interval time by 2 for every callback failure', () => {
+      it('should multiply interval time by 2 for every callback failure', async () => {
         const fakeSyncCallbackFunc = jest.fn();
-        fakeSyncCallbackFunc.mockImplementation(() => {throw new FakeErrorA()})
+        fakeSyncCallbackFunc.mockImplementation(() => {
+          throw new FakeErrorA();
+        });
 
-        const fakeRetryable = new Retryable(
-          fakeSyncCallbackFunc
-        );
+        const fakeRetryable = new Retryable(fakeSyncCallbackFunc);
 
-        fakeRetryable.retry
-          .times(3)
-          .withBackoffFactor(2)
-          .ifItThrows(FakeErrorA)
-        
+        fakeRetryable.retry.times(3).withBackoffFactor(2).ifItThrows(FakeErrorA);
+
         let exp;
         try {
-          fakeRetryable.run();
-        } catch(e) {
-          exp = e
+          await fakeRetryable.run();
+        } catch (e) {
+          exp = e;
         }
 
         // ensure that for each retry a backoff factor of 2 is applied
@@ -292,11 +310,11 @@ describe('retryable tests', () => {
             backoffFactor: 2,
           },
           triggersHistory: {
-            returnedValues: [0],
+            returnedValues: [],
             exceptionsThrown: [new FakeErrorA(), new FakeErrorA(), new FakeErrorA()],
-          }
+          },
         });
-      })
-    })
+      });
+    });
   });
 });

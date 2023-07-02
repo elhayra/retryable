@@ -1,6 +1,6 @@
 export class RetrySettings<CallbackReturnType> {
   public _errors: Set<Constructable | Error> = new Set();
-  public _returnedValues: Set<CallbackReturnType | Promise<CallbackReturnType> | null | undefined> = new Set();
+  public _returnedValues: Set<CallbackReturnType | null | undefined> = new Set();
   public _times = 3;
   public _intervalMillis = 1000;
   public _backoffFactor = 1;
