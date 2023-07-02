@@ -1,6 +1,6 @@
 export class RetrySettings<CallbackReturnType> {
-  public _errors: Set<Constructable | Error> = new Set([Error]);
-  public _returnedValues: Set<CallbackReturnType | null | undefined> = new Set();
+  public _errors: Set<Constructable | Error> = new Set();
+  public _returnedValues: Set<CallbackReturnType | Promise<CallbackReturnType> | null | undefined> = new Set();
   public _times = 3;
   public _intervalMillis = 1000;
   public _backoffFactor = 1;
@@ -22,7 +22,7 @@ export class RetrySettings<CallbackReturnType> {
     return this;
   }
 
-  public atIntervalsOf(intervalMillis: number): RetrySettings<CallbackReturnType> {
+  public withIntervalsOf(intervalMillis: number): RetrySettings<CallbackReturnType> {
     this._intervalMillis = intervalMillis;
     return this;
   }
