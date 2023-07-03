@@ -270,25 +270,17 @@ describe('retryable tests', () => {
     });
 
     describe('callback function triggers are set but never met', () => {
-      it('should not retry, even if the function throws', () => {});
-    });
+      it('should not retry for exception different than the trigger set', async () => {
+        const fakeAsyncCallbackFunc = jest.fn();
 
-    describe('retry triggers', () => {
-      it('should be able to detect different exception triggers', () => {});
-
-      it('should be able to detect different value triggers', () => {});
-    });
-
-    describe('interval with backoff factor of 2', () => {
-      it('should multiply interval time by 2 for every callback failure', async () => {
-        const fakeSyncCallbackFunc = jest.fn();
-        fakeSyncCallbackFunc.mockImplementation(() => {
-          throw new FakeErrorA();
+        fakeAsyncCallbackFunc.mockImplementationOnce(() => {
+          throw new FakeErrorB();
         });
 
-        const fakeRetryable = new Retryable(fakeSyncCallbackFunc);
+        const fakeRetryable = new Retryable(fakeAsyncCallbackFunc);
 
-        fakeRetryable.retry.times(3).withBackoffFactor(2).ifItThrows(FakeErrorA);
+        // set triggers that are different from the mock defined above
+        fakeRetryable.retry.times(3).ifItThrows(FakeErrorA);
 
         let exp;
         try {
@@ -297,23 +289,71 @@ describe('retryable tests', () => {
           exp = e;
         }
 
-        // ensure that for each retry a backoff factor of 2 is applied
-        expect(mockedSleep).toHaveBeenCalledTimes(3);
-        expect(mockedSleep).toHaveBeenNthCalledWith(1, 1000);
-        expect(mockedSleep).toHaveBeenNthCalledWith(2, 2000);
-        expect(mockedSleep).toHaveBeenNthCalledWith(3, 4000);
+        // make sure the callback function was called only once (no retries)
+        expect(fakeAsyncCallbackFunc).toHaveBeenCalledTimes(1);
+        expect(mockedSleep).toHaveBeenCalledTimes(0);
+        expect(exp).toBeInstanceOf(FakeErrorB);
+      });
+    });
 
-        expect(exp.data).toStrictEqual({
-          retryConfig: {
-            times: 3,
-            intervalMillis: 1000,
-            backoffFactor: 2,
-          },
-          triggersHistory: {
-            returnedValues: [],
-            exceptionsThrown: [new FakeErrorA(), new FakeErrorA(), new FakeErrorA()],
-          },
-        });
+    it('should not retry for value different than the trigger set', async () => {
+      const fakeAsyncCallbackFunc = jest.fn();
+
+      fakeAsyncCallbackFunc.mockResolvedValueOnce(1);
+
+      const fakeRetryable = new Retryable(fakeAsyncCallbackFunc);
+
+      // set triggers that are different from the mock defined above
+      fakeRetryable.retry.times(3).ifItReturns(0);
+
+      await fakeRetryable.run();
+
+      // make sure the callback function was called only once (no retries)
+      expect(fakeAsyncCallbackFunc).toHaveBeenCalledTimes(1);
+      expect(mockedSleep).toHaveBeenCalledTimes(0);
+    });
+  });
+
+  describe('retry triggers', () => {
+    it('should be able to detect different exception triggers', () => {});
+
+    it('should be able to detect different value triggers', () => {});
+  });
+
+  describe('interval with backoff factor of 2', () => {
+    it('should multiply interval time by 2 for every callback failure', async () => {
+      const fakeSyncCallbackFunc = jest.fn();
+      fakeSyncCallbackFunc.mockImplementation(() => {
+        throw new FakeErrorA();
+      });
+
+      const fakeRetryable = new Retryable(fakeSyncCallbackFunc);
+
+      fakeRetryable.retry.times(3).withBackoffFactor(2).ifItThrows(FakeErrorA);
+
+      let exp;
+      try {
+        await fakeRetryable.run();
+      } catch (e) {
+        exp = e;
+      }
+
+      // ensure that for each retry a backoff factor of 2 is applied
+      expect(mockedSleep).toHaveBeenCalledTimes(3);
+      expect(mockedSleep).toHaveBeenNthCalledWith(1, 1000);
+      expect(mockedSleep).toHaveBeenNthCalledWith(2, 2000);
+      expect(mockedSleep).toHaveBeenNthCalledWith(3, 4000);
+
+      expect(exp.data).toStrictEqual({
+        retryConfig: {
+          times: 3,
+          intervalMillis: 1000,
+          backoffFactor: 2,
+        },
+        triggersHistory: {
+          returnedValues: [],
+          exceptionsThrown: [new FakeErrorA(), new FakeErrorA(), new FakeErrorA()],
+        },
       });
     });
   });

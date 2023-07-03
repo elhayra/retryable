@@ -15,6 +15,7 @@ import { sleep } from './sleep';
 //  const fakeRetryable: Retryable<string, [number, number]> = new Retryable(
 //    fakeSyncCallbackFunc
 // );
+//todo: in the tests that only some retries fail (and not all), use the triggersHistory class member to assert that the correct values are there
 
 /**
  * This type ensure the user define the callback, and pass arguments
@@ -48,6 +49,7 @@ export class Retryable<CBRetType, CBParams extends unknown[]> {
 
   public async run(...args: CBParams): Promise<CBRetType> {
     this.resetRetryTriggersHistory();
+
     let intervalMillis = this.retry._intervalMillis;
     const sleepWithBackoff = async () => {
       await sleep(intervalMillis);
@@ -57,7 +59,7 @@ export class Retryable<CBRetType, CBParams extends unknown[]> {
     for (let t = this.retry._times; t > 0; t--) {
       try {
         const retVal = await this.callback(...args);
-        const isValueQualifyForRetry = this.retry._returnedValues.has(retVal as CBRetType);
+        const isValueQualifyForRetry = this.retry._returnedValues.has(retVal);
         if (isValueQualifyForRetry) {
           this.triggersHistory.returnedValues.push(retVal);
           await sleepWithBackoff();
