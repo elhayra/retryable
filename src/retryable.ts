@@ -16,6 +16,10 @@ import { sleep } from './sleep';
 //    fakeSyncCallbackFunc
 // );
 //todo: in the tests that only some retries fail (and not all), use the triggersHistory class member to assert that the correct values are there
+//todo: add jitter
+//todo: add id param to the contructor to use for identification. if not given, generate one automatically
+//todo: add the option to set a callback function for failed retry (onFailedRetry), which gets the value/exp, and retry details such as attemptNumber, and overall attempts, and millisUntilNextRetry
+//todo: add attemtps to all tests
 
 /**
  * This type ensure the user define the callback, and pass arguments
@@ -27,28 +31,18 @@ type CallbackFunction<CBRetType, CBParams extends unknown[]> = (
 
 export class Retryable<CBRetType, CBParams extends unknown[]> {
   public retry: RetrySettings<CBRetType>;
-  public triggersHistory: {
-    returnedValues: Array<CBRetType | Promise<CBRetType>>;
-    exceptionsThrown: Array<unknown>;
-  };
+  public attempts: Array<{
+    returnedValue?: CBRetType | Promise<CBRetType>, 
+    exceptionThrown?: unknown,
+  }> = [];
 
   constructor(private callback: CallbackFunction<CBRetType, CBParams>) {
     this.retry = new RetrySettings();
-    this.triggersHistory = {
-      returnedValues: [],
-      exceptionsThrown: [],
-    };
-  }
-
-  private resetRetryTriggersHistory() {
-    this.triggersHistory = {
-      returnedValues: [],
-      exceptionsThrown: [],
-    };
+    this.attempts = [];
   }
 
   public async run(...args: CBParams): Promise<CBRetType> {
-    this.resetRetryTriggersHistory();
+    this.attempts = [];
 
     let intervalMillis = this.retry._intervalMillis;
     const sleepWithBackoff = async () => {
@@ -61,7 +55,7 @@ export class Retryable<CBRetType, CBParams extends unknown[]> {
         const retVal = await this.callback(...args);
         const isValueQualifyForRetry = this.retry._returnedValues.has(retVal);
         if (isValueQualifyForRetry) {
-          this.triggersHistory.returnedValues.push(retVal);
+          this.attempts.push({ returnedValue: retVal });
           await sleepWithBackoff();
           continue;
         }
@@ -72,7 +66,7 @@ export class Retryable<CBRetType, CBParams extends unknown[]> {
         );
 
         if (isErrorQualifyForRetry) {
-          this.triggersHistory.exceptionsThrown.push(e);
+          this.attempts.push({ exceptionThrown: e});
           await sleepWithBackoff();
           continue;
         }
@@ -86,7 +80,7 @@ export class Retryable<CBRetType, CBParams extends unknown[]> {
         intervalMillis: this.retry._intervalMillis,
         backoffFactor: this.retry._backoffFactor,
       },
-      this.triggersHistory
+      this.attempts,
     );
   }
 }
