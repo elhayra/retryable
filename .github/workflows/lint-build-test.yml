@@ -10,7 +10,7 @@ on:
 
 jobs:
   lint:
-    name: ESLint
+    name: lint-build-test 
     runs-on: ubuntu-latest
 
     steps:
@@ -20,6 +20,6 @@ jobs:
           node-version: '14'
           cache: 'npm'
           cache-dependency-path: 'package-lock.json'
-      - run: npm lint 
+      - run: npm run lint 
       - run: npm ci
-      - run: npm test
+      - run: npm run test
