@@ -371,10 +371,28 @@ describe('retryable tests', () => {
       })
     })
 
-    it('should be able to detect different exception triggers', () => {
+    it('should be able to detect different exception triggers', async () => {
       //set 2 different errors
       //set 2 retries
       //except ran-out-of-retries w/ both errors
+      const fakeAsyncCallbackFunc = jest.fn();
+      fakeAsyncCallbackFunc.mockImplementationOnce(() => {throw new FakeErrorA();}).mockImplementationOnce(() => {throw new FakeErrorB();}).mockReturnValue(0);
+
+      const fakeRetryable = new Retryable(fakeAsyncCallbackFunc);
+
+      fakeRetryable.retry.times(3).ifItThrows(FakeErrorB).ifItThrows(FakeErrorA);
+
+      await fakeRetryable.run();
+
+      // ensure retry was called for both exception triggers
+      expect(fakeAsyncCallbackFunc).toHaveBeenCalledTimes(3);
+      expect(mockedSleep).toHaveBeenCalledTimes(2);
+      expect(fakeRetryable.attempts).toStrictEqual(
+        [
+          { exceptionThrown: new FakeErrorA()},
+          { exceptionThrown: new FakeErrorB()},
+        ],
+      );
     });
 
     it('should be able to detect different value triggers', () => {
