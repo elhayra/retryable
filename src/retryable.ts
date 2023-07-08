@@ -32,8 +32,8 @@ type CallbackFunction<CBRetType, CBParams extends unknown[]> = (
 export class Retryable<CBRetType, CBParams extends unknown[]> {
   public retry: RetrySettings<CBRetType>;
   public attempts: Array<{
-    returnedValue?: CBRetType | Promise<CBRetType>, 
-    exceptionThrown?: unknown,
+    returnedValue?: CBRetType | Promise<CBRetType>;
+    exceptionThrown?: unknown;
   }> = [];
 
   constructor(private callback: CallbackFunction<CBRetType, CBParams>) {
@@ -66,7 +66,7 @@ export class Retryable<CBRetType, CBParams extends unknown[]> {
         );
 
         if (isErrorQualifyForRetry) {
-          this.attempts.push({ exceptionThrown: e});
+          this.attempts.push({ exceptionThrown: e });
           await sleepWithBackoff();
           continue;
         }
@@ -80,7 +80,7 @@ export class Retryable<CBRetType, CBParams extends unknown[]> {
         intervalMillis: this.retry._intervalMillis,
         backoffFactor: this.retry._backoffFactor,
       },
-      this.attempts,
+      this.attempts
     );
   }
 }

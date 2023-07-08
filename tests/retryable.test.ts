@@ -232,9 +232,9 @@ describe('retryable tests', () => {
               backoffFactor: 1,
             },
             attempts: [
-              { exceptionThrown: new FakeErrorA()},
-              { exceptionThrown: new FakeErrorB()},
-              { returnedValue: 0},
+              { exceptionThrown: new FakeErrorA() },
+              { exceptionThrown: new FakeErrorB() },
+              { returnedValue: 0 },
             ],
           });
           expect(mockedSleep).toHaveBeenCalledTimes(3);
@@ -267,11 +267,7 @@ describe('retryable tests', () => {
               intervalMillis: 1000,
               backoffFactor: 1,
             },
-            attempts: [
-              { returnedValue: 0},
-              { returnedValue: 0},
-              { returnedValue: 0},
-            ],
+            attempts: [{ returnedValue: 0 }, { returnedValue: 0 }, { returnedValue: 0 }],
           });
           expect(mockedSleep).toHaveBeenCalledTimes(3);
           expect(fakeRetryable.attempts.length).toEqual(3);
@@ -327,56 +323,63 @@ describe('retryable tests', () => {
   });
 
   describe('retry triggers', () => {
-
     describe('trigger set for superclass exception', () => {
       it('should be able to detect subclasses as the same exception trigger', async () => {
         class FakeErrorC extends Error {}
 
         const fakeCallbackFunc = jest.fn();
-        fakeCallbackFunc.mockImplementationOnce(() => {throw new FakeErrorC();});
-  
+        fakeCallbackFunc.mockImplementationOnce(() => {
+          throw new FakeErrorC();
+        });
+
         const fakeRetryable = new Retryable(fakeCallbackFunc);
         fakeRetryable.retry.times(2).ifItThrows(Error);
-  
+
         await fakeRetryable.run();
-  
+
         // make sure retry was triggered once for the subclass error
         expect(fakeCallbackFunc).toHaveBeenCalledTimes(2);
-        expect(mockedSleep).toHaveBeenCalledTimes(1); 
+        expect(mockedSleep).toHaveBeenCalledTimes(1);
         expect(fakeRetryable.attempts.length).toEqual(1);
         expect(fakeRetryable.attempts[0].exceptionThrown).toStrictEqual(new FakeErrorC());
-      })
-    })
+      });
+    });
 
     describe('trigger set for subclass exception', () => {
       it('should be able to distinguish b/w subclass and the parent superclass', async () => {
         class FakeErrorD extends Error {}
 
         const fakeCallbackFunc = jest.fn();
-        fakeCallbackFunc.mockImplementationOnce(() => {throw new Error();});
-  
+        fakeCallbackFunc.mockImplementationOnce(() => {
+          throw new Error();
+        });
+
         const fakeRetryable = new Retryable(fakeCallbackFunc);
         fakeRetryable.retry.times(2).ifItThrows(FakeErrorD);
-  
+
         try {
           await fakeRetryable.run();
-        } catch(e) {
+        } catch (e) {
           expect(e).toStrictEqual(new Error());
         }
-  
+
         // make sure retry was not triggered for the superclass error
         expect(fakeCallbackFunc).toHaveBeenCalledTimes(1);
-        expect(mockedSleep).toHaveBeenCalledTimes(0); 
+        expect(mockedSleep).toHaveBeenCalledTimes(0);
         expect(fakeRetryable.attempts.length).toEqual(0);
-      })
-    })
+      });
+    });
 
     it('should be able to detect different exception triggers', async () => {
-      //set 2 different errors
-      //set 2 retries
-      //except ran-out-of-retries w/ both errors
       const fakeAsyncCallbackFunc = jest.fn();
-      fakeAsyncCallbackFunc.mockImplementationOnce(() => {throw new FakeErrorA();}).mockImplementationOnce(() => {throw new FakeErrorB();}).mockReturnValue(0);
+      fakeAsyncCallbackFunc
+        .mockImplementationOnce(() => {
+          throw new FakeErrorA();
+        })
+        .mockImplementationOnce(() => {
+          throw new FakeErrorB();
+        })
+        .mockReturnValue(0);
 
       const fakeRetryable = new Retryable(fakeAsyncCallbackFunc);
 
@@ -387,18 +390,26 @@ describe('retryable tests', () => {
       // ensure retry was called for both exception triggers
       expect(fakeAsyncCallbackFunc).toHaveBeenCalledTimes(3);
       expect(mockedSleep).toHaveBeenCalledTimes(2);
-      expect(fakeRetryable.attempts).toStrictEqual(
-        [
-          { exceptionThrown: new FakeErrorA()},
-          { exceptionThrown: new FakeErrorB()},
-        ],
-      );
+      expect(fakeRetryable.attempts).toStrictEqual([
+        { exceptionThrown: new FakeErrorA() },
+        { exceptionThrown: new FakeErrorB() },
+      ]);
     });
 
-    it('should be able to detect different value triggers', () => {
-      //set 2 different values 
-      //set 2 retries
-      //except ran-out-of-retries w/ both values 
+    it('should be able to detect different value triggers', async () => {
+      const fakeAsyncCallbackFunc = jest.fn();
+      fakeAsyncCallbackFunc.mockReturnValueOnce(12).mockResolvedValueOnce(-1).mockReturnValue(0);
+
+      const fakeRetryable = new Retryable(fakeAsyncCallbackFunc);
+
+      fakeRetryable.retry.times(3).ifItReturns(-1).ifItReturns(12);
+
+      await fakeRetryable.run();
+
+      // ensure retry was called for both value triggers
+      expect(fakeAsyncCallbackFunc).toHaveBeenCalledTimes(3);
+      expect(mockedSleep).toHaveBeenCalledTimes(2);
+      expect(fakeRetryable.attempts).toStrictEqual([{ returnedValue: 12 }, { returnedValue: -1 }]);
     });
   });
 
@@ -435,9 +446,9 @@ describe('retryable tests', () => {
           backoffFactor: 2,
         },
         attempts: [
-          { exceptionThrown: new FakeErrorA()},
-          { exceptionThrown: new FakeErrorA()},
-          { exceptionThrown: new FakeErrorA()},
+          { exceptionThrown: new FakeErrorA() },
+          { exceptionThrown: new FakeErrorA() },
+          { exceptionThrown: new FakeErrorA() },
         ],
       });
     });
