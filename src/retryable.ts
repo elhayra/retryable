@@ -50,8 +50,7 @@ export class Retryable<CBRetType, CBParams extends unknown[]> {
     for (let t = this.retry._times; t > 0; t--) {
       try {
         const retVal = await this.callback(...args);
-        const isValueQualifyForRetry = this.retry._returnedValues.has(retVal);
-        if (isValueQualifyForRetry) {
+        if (this.retry._isValueQualifyForRetry(retVal)) {
           this.attempts.push({ returnedValue: retVal });
           await sleepWithBackoff();
           continue;

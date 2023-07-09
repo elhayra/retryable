@@ -32,10 +32,14 @@ export class RetrySettings<CallbackReturnType> {
     return this;
   }
 
-  public _isErrorQualifyForRetry(err: Set<Constructable | Error>): boolean {
+  public _isErrorQualifyForRetry(err: Constructable | Error): boolean {
     return Array.from(this._errors.values()).some(
       (e) => e.constructor === err.constructor || err instanceof (e as any)
     );
+  }
+
+  public _isValueQualifyForRetry(value: CallbackReturnType | null | undefined): boolean {
+    return this._returnedValues.has(value);
   }
 }
 
