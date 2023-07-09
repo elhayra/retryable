@@ -1,4 +1,4 @@
-[![Lint and Test](https://github.com/elhayra/retryable/workflows/lint-build-test/badge.svg)](https://github.com/elhayra/retryable/actions/workflows/lint-build-test.yml)
+[![lint-build-test](https://github.com/elhayra/retryable/actions/workflows/lint-build-test.yml/badge.svg)](https://github.com/elhayra/retryable/actions/workflows/lint-build-test.yml)
 
 # retryable
 Retryable is a simple, light weight retry library written in Typescript
