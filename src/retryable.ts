@@ -9,7 +9,6 @@ import { sleep } from './sleep';
 // the setTimeout function can be used with a callback, but it's much cleaner and readable to use await in this case, which also requires run() func to be async
 //todo: document the code
 //todo: document that ive decided not to use default excption of Error, the user must define the triggers - no default triggers
-//todo: add gitlab pipline with lint and utests check
 //todo: provide a quick start guide example in the readme, and a detailed guide too
 // example for typed retryable that get 2 numbers as arguments and returns a string:
 //  const fakeRetryable: Retryable<string, [number, number]> = new Retryable(
@@ -61,11 +60,7 @@ export class Retryable<CBRetType, CBParams extends unknown[]> {
         }
         return retVal;
       } catch (e: any) {
-        const isErrorQualifyForRetry = Array.from(this.retry._errors.values()).find(
-          (err) => err.constructor === e?.constructor || e instanceof (err as any)
-        );
-
-        if (isErrorQualifyForRetry) {
+        if (this.retry._isErrorQualifyForRetry(e)) {
           this.attempts.push({ exceptionThrown: e });
           await sleepWithBackoff();
           continue;

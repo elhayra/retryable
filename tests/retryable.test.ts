@@ -453,4 +453,14 @@ describe('retryable tests', () => {
       });
     });
   });
+
+  describe('invoking run function multiple times', () => {
+    it('should clear the attempts history before each call', () => {
+
+    });
+
+    it('should retry N times for each call', () => {
+
+    });
+  })
 });

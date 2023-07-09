@@ -31,6 +31,12 @@ export class RetrySettings<CallbackReturnType> {
     this._backoffFactor = factor;
     return this;
   }
+
+  public _isErrorQualifyForRetry(err: Set<Constructable | Error>): boolean {
+    return Array.from(this._errors.values()).some(
+      (e) => e.constructor === err.constructor || err instanceof (e as any)
+    );
+  }
 }
 
 interface Constructable {
