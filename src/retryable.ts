@@ -17,8 +17,7 @@ import { sleep } from './sleep';
 //todo: in the tests that only some retries fail (and not all), use the triggersHistory class member to assert that the correct values are there
 //todo: add jitter
 //todo: add id param to the contructor to use for identification. if not given, generate one automatically
-//todo: add the option to set a callback function for failed retry (onFailedRetry), which gets the value/exp, and retry details such as attemptNumber, and overall attempts, and millisUntilNextRetry
-//todo: add attemtps to all tests
+//todo: add the option to set a hooks callback function  (beforeRetry, onFailedRetry), which gets the value/exp, and retry details such as attemptNumber, and overall attempts, and millisUntilNextRetry
 
 /**
  * This type ensure the user define the callback, and pass arguments

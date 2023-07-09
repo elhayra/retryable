@@ -455,12 +455,63 @@ describe('retryable tests', () => {
   });
 
   describe('invoking run function multiple times', () => {
-    it('should clear the attempts history before each call', () => {
+    it('should clear the attempts history before each call', async () => {
+      const fakeSyncCallbackFunc = jest.fn();
+      fakeSyncCallbackFunc
+        .mockImplementationOnce(() => {
+          throw new FakeErrorA();
+        })
+        .mockReturnValueOnce(NaN)
+        .mockReturnValue(1);
 
+      const fakeRetryable = new Retryable(fakeSyncCallbackFunc);
+
+      fakeRetryable.retry.times(3).ifItThrows(FakeErrorA).ifItReturns(NaN);
+
+      // on the first run the first 2 attempts fail, and the third succeed.
+      // so, the attempts data should include 2 attempts
+      await fakeRetryable.run();
+
+      expect(fakeRetryable.attempts.length).toEqual(2);
+
+      // on the second run, the function return a valid value, so no attempts expected.
+      // so, if attempts data is cleared, it should be empty
+      await fakeRetryable.run();
+
+      expect(fakeRetryable.attempts.length).toEqual(0);
     });
 
-    it('should retry N times for each call', () => {
+    it('should retry N times for each call', async () => {
+      const fakeSyncCallbackFunc = jest.fn();
 
+      const setCBFuncMock = () =>
+        fakeSyncCallbackFunc
+          .mockImplementationOnce(() => {
+            throw new FakeErrorA();
+          })
+          .mockReturnValueOnce(NaN)
+          .mockReturnValueOnce(1);
+
+      setCBFuncMock();
+
+      const fakeRetryable = new Retryable(fakeSyncCallbackFunc);
+
+      fakeRetryable.retry.times(3).ifItThrows(FakeErrorA).ifItReturns(NaN);
+
+      await fakeRetryable.run();
+
+      expect(fakeRetryable.attempts.length).toEqual(2);
+      expect(mockedSleep).toBeCalledTimes(2);
+
+      fakeSyncCallbackFunc.mockClear();
+      mockedSleep.mockClear();
+
+      setCBFuncMock();
+
+      await fakeRetryable.run();
+
+      expect(fakeRetryable.attempts.length).toEqual(2);
+      expect(mockedSleep).toBeCalledTimes(2);
     });
-  })
+  });
 });
