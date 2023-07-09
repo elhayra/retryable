@@ -6,11 +6,13 @@ export class RanOutOfRetries extends RetryableError {
     attempts: Array<{
       returnedValue?: unknown;
       exceptionThrown?: unknown;
-    }>
+    }>,
+    id?: string
   ) {
     super('Ran out of retries while executing operation', {
       retryConfig,
       attempts,
+      id,
     });
   }
 }

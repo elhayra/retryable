@@ -93,6 +93,15 @@ describe('retryable tests', () => {
         expect(fakeRetryable.retry._errors).toStrictEqual(new Set([FakeErrorA, FakeErrorB]));
       });
     });
+
+    describe('setting retryable id', () => {
+      it('should get stored', async () => {
+        const fakeSyncCallbackFunc = jest.fn();
+        const fakeRetryable = new Retryable(fakeSyncCallbackFunc, 'some-retryable-id');
+
+        expect(fakeRetryable.id).toEqual('some-retryable-id');
+      });
+    });
   });
 
   describe('retry execution', () => {
@@ -226,6 +235,7 @@ describe('retryable tests', () => {
           // more than the number of retries allowed
           expect(fakeSyncCallbackFunc).toHaveBeenCalledTimes(3);
           expect(exp.data).toStrictEqual({
+            id: undefined,
             retryConfig: {
               times: 3,
               intervalMillis: 1000,
@@ -262,6 +272,7 @@ describe('retryable tests', () => {
           // more than the number of retries allowed
           expect(fakeAsyncCallbackFunc).toHaveBeenCalledTimes(3);
           expect(exp.data).toStrictEqual({
+            id: undefined,
             retryConfig: {
               times: 3,
               intervalMillis: 1000,
@@ -440,6 +451,7 @@ describe('retryable tests', () => {
       expect(fakeRetryable.attempts.length).toEqual(3);
 
       expect(exp.data).toStrictEqual({
+        id: undefined,
         retryConfig: {
           times: 3,
           intervalMillis: 1000,
@@ -512,6 +524,30 @@ describe('retryable tests', () => {
 
       expect(fakeRetryable.attempts.length).toEqual(2);
       expect(mockedSleep).toBeCalledTimes(2);
+    });
+  });
+
+  describe('retryable id was set', () => {
+    it('should be part of the out-of-retries exception', async () => {
+      const fakeSyncCallbackFunc = jest.fn();
+      fakeSyncCallbackFunc
+        .mockImplementationOnce(() => {
+          throw new FakeErrorA();
+        })
+        .mockReturnValueOnce(NaN);
+
+      const fakeRetryable = new Retryable(fakeSyncCallbackFunc, 'some-retryable-id');
+
+      fakeRetryable.retry.times(2).ifItThrows(FakeErrorA).ifItReturns(NaN);
+
+      let exp;
+      try {
+        await fakeRetryable.run();
+      } catch (e) {
+        exp = e;
+      }
+
+      expect(exp.data).toStrictEqual(expect.objectContaining({ id: 'some-retryable-id' }));
     });
   });
 });
