@@ -2,19 +2,12 @@ import { RanOutOfRetries } from './errors';
 import { RetrySettings } from './retry-settings';
 import { sleep } from './sleep';
 
-//todo: document the Retryable type. for example, for callback func that get 2 numbers as arguemtns and return string: Retryable<string, [number, number]>
 //todo: document that run function should always be awaited because:
 // it support both sync and async functions
 // at the time it operates, the callback function return value should be resolved so it can be checked if a retry is needed or not based on the resolved value (a promise is not enough here)
 // the setTimeout function can be used with a callback, but it's much cleaner and readable to use await in this case, which also requires run() func to be async
-//todo: document the code
 //todo: document that ive decided not to use default excption of Error, the user must define the triggers - no default triggers
 //todo: provide a quick start guide example in the readme, and a detailed guide too
-// example for typed retryable that get 2 numbers as arguments and returns a string:
-//  const fakeRetryable: Retryable<string, [number, number]> = new Retryable(
-//    fakeSyncCallbackFunc
-// );
-//todo: in the tests that only some retries fail (and not all), use the triggersHistory class member to assert that the correct values are there
 //todo: add jitter
 //todo: add the option to set a hooks callback function  (beforeRetry, onFailedRetry), which gets the value/exp, and retry details such as attemptNumber, and overall attempts, and millisUntilNextRetry
 
@@ -26,6 +19,44 @@ type CallbackFunction<CBRetType, CBParams extends unknown[]> = (
   ...args: CBParams
 ) => CBRetType | Promise<CBRetType>;
 
+/**
+ * With this class you can create a retryable callback function.
+ * The class allow you to configure the properties of retry, before executing
+ * the callback function.
+ *
+ * Usage Examples:
+ * ---
+ * Create and execute a Retryable instance for callback function that takes two number arguments,
+ * and return a string:
+ * ```
+ * const callbackFunc = (a: number, b: number): string => `${a+b}`;
+ * const r = new Retryable<string, [number, number]>(callbackFunc);
+ * await r.run(1, 2);
+ * ```
+ * ---
+ * Create and execute a Retryable instance for callback function that takes one string argument,
+ * and return nothing:
+ * ```
+ * const callbackFunc = (str: string): void => {};
+ * const r = new Retryable<void, [string]>(callbackFunc);
+ * await r.run('hello');
+ * ```
+ * ---
+ * Create and execute a Retryable instance for callback function that takes no arguments, and
+ * return nothing:
+ * ```
+ * const callbackFunc = (): void => {};
+ * const r = new Retryable<void, []>(callbackFunc);
+ * await r.run()
+ * ```
+ * ---
+ * It is also possible to create Retryable class, and let Typescript infer the types automatically:
+ * ```
+ * const callbackFunc = (str: string): string => `I say: ${str}`;
+ * const r = new Retryable(callbackFunc);
+ * await r.run('hi there');
+ * ```
+ */
 export class Retryable<CBRetType, CBParams extends unknown[]> {
   public retry: RetrySettings<CBRetType>;
   public attempts: Array<{
@@ -37,6 +68,19 @@ export class Retryable<CBRetType, CBParams extends unknown[]> {
     this.retry = new RetrySettings();
     this.attempts = [];
   }
+
+  /**
+   * Run the callback function, and retry if one of the following conditions is met:
+   * 1. An exception trigger was set, and that exception was thrown from the callback
+   * 2. A value trigger was set, and that value was returned from the callback
+   *
+   * If no trigger was met, and the callback function ran successfully, this method
+   * return the original callback function return value.
+   *
+   * If no trigger was met, and the callback function fail to run (throw), this method
+   * will retry to run the callback function N times. If after N retries the callback
+   * function still fails, this method will throw `RanOutOfRetries` exception
+   */
 
   public async run(...args: CBParams): Promise<CBRetType> {
     this.attempts = [];
