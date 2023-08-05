@@ -1,8 +1,9 @@
+import { RetrySettingsData } from '../retry-settings';
 import { RetryableError } from './retryable-error';
 
 export class RanOutOfRetries extends RetryableError {
   constructor(
-    retryConfig: { times: number; intervalMillis: number; backoffFactor: number },
+    retryConfig: RetrySettingsData,
     attempts: Array<{
       returnedValue?: unknown;
       exceptionThrown?: unknown;

@@ -8,7 +8,6 @@ import { sleep } from './sleep';
 // the setTimeout function can be used with a callback, but it's much cleaner and readable to use await in this case, which also requires run() func to be async
 //todo: document that ive decided not to use default excption of Error, the user must define the triggers - no default triggers
 //todo: provide a quick start guide example in the readme, and a detailed guide too
-//todo: add jitter
 //todo: add the option to set a hooks callback function  (beforeRetry, onFailedRetry), which gets the value/exp, and retry details such as attemptNumber, and overall attempts, and millisUntilNextRetry
 
 /**
@@ -58,7 +57,7 @@ type CallbackFunction<CBRetType, CBParams extends unknown[]> = (
  * ```
  */
 export class Retryable<CBRetType, CBParams extends unknown[]> {
-  public retry: RetrySettings<CBRetType>;
+  public readonly retry: RetrySettings<CBRetType>;
   public attempts: Array<{
     returnedValue?: CBRetType | Promise<CBRetType>;
     exceptionThrown?: unknown;
@@ -86,8 +85,8 @@ export class Retryable<CBRetType, CBParams extends unknown[]> {
     this.attempts = [];
 
     let intervalMillis = this.retry._intervalMillis;
-    const sleepWithBackoff = async () => {
-      await sleep(intervalMillis);
+    const sleepBeforeNextTry = async () => {
+      await sleep(intervalMillis + this.getRandomJitter());
       intervalMillis *= this.retry._backoffFactor;
     };
 
@@ -96,28 +95,29 @@ export class Retryable<CBRetType, CBParams extends unknown[]> {
         const retVal = await this.callback(...args);
         if (this.retry._isValueQualifyForRetry(retVal)) {
           this.attempts.push({ returnedValue: retVal });
-          await sleepWithBackoff();
+          await sleepBeforeNextTry();
           continue;
         }
         return retVal;
       } catch (e: any) {
         if (this.retry._isErrorQualifyForRetry(e)) {
           this.attempts.push({ exceptionThrown: e });
-          await sleepWithBackoff();
+          await sleepBeforeNextTry();
           continue;
         }
         throw e;
       }
     }
 
-    throw new RanOutOfRetries(
-      {
-        times: this.retry._times,
-        intervalMillis: this.retry._intervalMillis,
-        backoffFactor: this.retry._backoffFactor,
-      },
-      this.attempts,
-      this.id
-    );
+    throw new RanOutOfRetries(this.retry.getSettings(), this.attempts, this.id);
+  }
+
+  private getRandomJitter(): number {
+    const min = this.retry._jitter.min;
+    const max = this.retry._jitter.max;
+    if (min === 0 && max === 0) {
+      return 0;
+    }
+    return Math.floor(Math.random() * (max - min + 1) + min);
   }
 }

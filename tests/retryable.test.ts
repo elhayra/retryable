@@ -1,4 +1,5 @@
 import { Retryable } from '../src';
+import { RetryableError } from '../src/errors/retryable-error';
 import { sleep } from '../src/sleep';
 
 jest.mock('../src/sleep');
@@ -91,6 +92,36 @@ describe('retryable tests', () => {
 
         expect(fakeRetryable.retry._returnedValues).toEqual(new Set([1, 2]));
         expect(fakeRetryable.retry._errors).toStrictEqual(new Set([FakeErrorA, FakeErrorB]));
+      });
+    });
+
+    describe('setting jitter', () => {
+      describe('valid range values', () => {
+        it('should store the range', () => {
+          const min = 0;
+          const max = 1;
+
+          fakeRetryable.retry.withJitter(min, max);
+
+          expect(fakeRetryable.retry._jitter).toStrictEqual({
+            min,
+            max,
+          });
+        });
+      });
+
+      describe('invalid range values', () => {
+        it('should throw and not store range', () => {
+          const min = 1;
+          const max = 0;
+
+          expect(() => fakeRetryable.retry.withJitter(min, max)).toThrow(RetryableError);
+
+          expect(fakeRetryable.retry._jitter).toStrictEqual({
+            min: 0,
+            max: 0,
+          });
+        });
       });
     });
 
@@ -236,11 +267,11 @@ describe('retryable tests', () => {
           expect(fakeSyncCallbackFunc).toHaveBeenCalledTimes(3);
           expect(exp.data).toStrictEqual({
             id: undefined,
-            retryConfig: {
+            retryConfig: expect.objectContaining({
               times: 3,
               intervalMillis: 1000,
               backoffFactor: 1,
-            },
+            }),
             attempts: [
               { exceptionThrown: new FakeErrorA() },
               { exceptionThrown: new FakeErrorB() },
@@ -273,11 +304,11 @@ describe('retryable tests', () => {
           expect(fakeAsyncCallbackFunc).toHaveBeenCalledTimes(3);
           expect(exp.data).toStrictEqual({
             id: undefined,
-            retryConfig: {
+            retryConfig: expect.objectContaining({
               times: 3,
               intervalMillis: 1000,
               backoffFactor: 1,
-            },
+            }),
             attempts: [{ returnedValue: 0 }, { returnedValue: 0 }, { returnedValue: 0 }],
           });
           expect(mockedSleep).toHaveBeenCalledTimes(3);
@@ -452,10 +483,63 @@ describe('retryable tests', () => {
 
       expect(exp.data).toStrictEqual({
         id: undefined,
-        retryConfig: {
+        retryConfig: expect.objectContaining({
           times: 3,
           intervalMillis: 1000,
           backoffFactor: 2,
+        }),
+        attempts: [
+          { exceptionThrown: new FakeErrorA() },
+          { exceptionThrown: new FakeErrorA() },
+          { exceptionThrown: new FakeErrorA() },
+        ],
+      });
+    });
+  });
+
+  describe('jitter range', () => {
+    it('should add random jitter to interval', async () => {
+      const fakeSyncCallbackFunc = jest.fn();
+      fakeSyncCallbackFunc.mockImplementation(() => {
+        throw new FakeErrorA();
+      });
+
+      const fakeRetryable = new Retryable(fakeSyncCallbackFunc);
+
+      const maxJitter = 200;
+      const minJitter = 100;
+      fakeRetryable.retry.times(3).withJitter(minJitter, maxJitter).ifItThrows(FakeErrorA);
+
+      let exp;
+      try {
+        await fakeRetryable.run();
+      } catch (e) {
+        exp = e;
+      }
+
+      expect(mockedSleep).toHaveBeenCalledTimes(3);
+
+      // ensure that for each sleep a jitter in range was applied
+      const defaultInterval = 1000;
+      for (let nthCall = 0; nthCall < 3; nthCall++) {
+        expect(mockedSleep.mock.calls[nthCall][0]).toBeGreaterThanOrEqual(
+          defaultInterval + minJitter
+        );
+        expect(mockedSleep.mock.calls[nthCall][0]).toBeLessThanOrEqual(defaultInterval + maxJitter);
+      }
+
+      expect(fakeRetryable.attempts.length).toEqual(3);
+
+      expect(exp.data).toStrictEqual({
+        id: undefined,
+        retryConfig: {
+          times: 3,
+          intervalMillis: 1000,
+          backoffFactor: 1,
+          jitter: {
+            min: minJitter,
+            max: maxJitter,
+          },
         },
         attempts: [
           { exceptionThrown: new FakeErrorA() },
